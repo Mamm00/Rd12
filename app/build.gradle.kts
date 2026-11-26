@@ -111,6 +111,11 @@ android {
     }
 }
 
+// Keep Android-Bionic Conscrypt JNI in the APK, while excluding it from host-JVM Robolectric tests
+configurations.matching { it.name.contains("UnitTest") }.configureEach {
+    exclude(group = "org.conscrypt", module = "conscrypt-android")
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

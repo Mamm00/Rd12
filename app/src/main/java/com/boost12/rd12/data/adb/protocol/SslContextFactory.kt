@@ -2,10 +2,10 @@ package com.boost12.rd12.data.adb.protocol
 
 import android.annotation.SuppressLint
 import com.boost12.rd12.data.adb.crypto.AdbKeyMaterial
-import org.conscrypt.Conscrypt
 import java.net.Socket
 import java.security.Principal
 import java.security.PrivateKey
+import java.security.Provider
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import javax.net.ssl.KeyManager
@@ -18,9 +18,10 @@ import javax.net.ssl.X509ExtendedKeyManager
 import javax.net.ssl.X509TrustManager
 
 /**
- * Creates a TLSv1.3 [SSLContext] backed by Conscrypt so both client-certificate `A_STLS`
- * authentication and RFC 5705 `exportKeyingMaterial("adb-label\u0000", 64)` work identically
- * across MIUI and HyperOS builds without relying on restricted hidden APIs.
+ * Creates a TLSv1.3 [SSLContext] backed by bundled Conscrypt on Android (with graceful fallback
+ * to platform Conscrypt / JSSE on host JVM tests) so both client-certificate `A_STLS`
+ * authentication and RFC 5705 `exportKeyingMaterial("adb-label\u0000", 64)` work across all
+ * MIUI and HyperOS builds without relying on restricted hidden APIs.
  */
 object SslContextFactory {
     const val ADB_EKM_LABEL = "adb-label\u0000"
@@ -30,7 +31,8 @@ object SslContextFactory {
     fun createTls13Context(keyMaterial: AdbKeyMaterial): Pair<SSLContext, Boolean> {
         var usingBundledConscrypt = false
         val sslContext = try {
-            val provider = Conscrypt.newProvider()
+            val conscryptClass = Class.forName("org.conscrypt.Conscrypt")
+            val provider = conscryptClass.getMethod("newProvider").invoke(null) as Provider
             usingBundledConscrypt = true
             SSLContext.getInstance("TLSv1.3", provider)
         } catch (_: Throwable) {
@@ -50,26 +52,30 @@ object SslContextFactory {
         usingBundledConscrypt: Boolean,
         length: Int = ADB_EKM_LENGTH
     ): ByteArray {
-        if (usingBundledConscrypt && Conscrypt.isConscrypt(sslSocket)) {
-            return Conscrypt.exportKeyingMaterial(sslSocket, ADB_EKM_LABEL, null, length)
-                ?: throw SSLException("Conscrypt returned null keying material")
+        val candidateClassNames = if (usingBundledConscrypt) {
+            listOf("org.conscrypt.Conscrypt", "com.android.org.conscrypt.Conscrypt")
+        } else {
+            listOf("com.android.org.conscrypt.Conscrypt", "org.conscrypt.Conscrypt")
         }
-        return try {
-            val platformConscrypt = Class.forName("com.android.org.conscrypt.Conscrypt")
-            val method = platformConscrypt.getMethod(
-                "exportKeyingMaterial",
-                SSLSocket::class.java,
-                String::class.java,
-                ByteArray::class.java,
-                Int::class.javaPrimitiveType
-            )
-            method.invoke(null, sslSocket, ADB_EKM_LABEL, null, length) as? ByteArray
-                ?: throw SSLException("Platform Conscrypt returned null keying material")
-        } catch (e: SSLException) {
-            throw e
-        } catch (t: Throwable) {
-            throw SSLException("Failed to export TLSv1.3 keying material for SPAKE2+", t)
+
+        var lastError: Throwable? = null
+        for (className in candidateClassNames) {
+            try {
+                val cls = Class.forName(className)
+                val method = cls.getMethod(
+                    "exportKeyingMaterial",
+                    SSLSocket::class.java,
+                    String::class.java,
+                    ByteArray::class.java,
+                    Int::class.javaPrimitiveType
+                )
+                val bytes = method.invoke(null, sslSocket, ADB_EKM_LABEL, null, length) as? ByteArray
+                if (bytes != null) return bytes
+            } catch (t: Throwable) {
+                lastError = t
+            }
         }
+        throw SSLException("Failed to export TLSv1.3 keying material for SPAKE2+", lastError)
     }
 
     private fun createClientKeyManager(keyMaterial: AdbKeyMaterial): X509ExtendedKeyManager {
@@ -89,12 +95,8 @@ object SslContextFactory {
                 keyTypes: Array<out String>?,
                 issuers: Array<out Principal>?,
                 socket: Socket?
-            ): String? {
-                return if (keyTypes?.any { it.equals("RSA", ignoreCase = true) } == true) {
-                    CLIENT_KEY_ALIAS
-                } else {
-                    CLIENT_KEY_ALIAS
-                }
+            ): String {
+                return CLIENT_KEY_ALIAS
             }
 
             override fun chooseEngineClientAlias(
