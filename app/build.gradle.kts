@@ -16,12 +16,15 @@ val keystoreProperties = Properties().apply {
     }
 }
 
-val robolectricJars by configurations.creating {
+val robolectricSdk34 by configurations.creating {
+    isTransitive = false
+}
+val robolectricSdk35 by configurations.creating {
     isTransitive = false
 }
 
 val prepareRobolectricJars by tasks.registering(Sync::class) {
-    from(robolectricJars)
+    from(robolectricSdk34, robolectricSdk35)
     into(layout.buildDirectory.dir("robolectric-jars"))
 }
 
@@ -173,9 +176,9 @@ dependencies {
     testImplementation(libs.google.truth)
     testImplementation(libs.turbine)
     testImplementation(libs.robolectric)
-    robolectricJars("org.robolectric:android-all-instrumented:14-robolectric-10818077-i7")
-    robolectricJars("org.robolectric:android-all-instrumented:15-robolectric-12650502-i7")
-    robolectricJars("org.robolectric:nativeruntime-dist-compat:1.0.16")
+    robolectricSdk34("org.robolectric:android-all-instrumented:14-robolectric-10818077-i7")
+    robolectricSdk34("org.robolectric:nativeruntime-dist-compat:1.0.16")
+    robolectricSdk35("org.robolectric:android-all-instrumented:15-robolectric-12650502-i7")
     testImplementation(libs.androidx.test.core.ktx)
     testImplementation(libs.androidx.test.ext.junit)
     testImplementation(platform(libs.androidx.compose.bom))
