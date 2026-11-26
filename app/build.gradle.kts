@@ -174,6 +174,8 @@ dependencies {
     testImplementation(libs.turbine)
     testImplementation(libs.robolectric)
     robolectricJars("org.robolectric:android-all-instrumented:14-robolectric-10818077-i7")
+    robolectricJars("org.robolectric:android-all-instrumented:15-robolectric-12650502-i7")
+    robolectricJars("org.robolectric:nativeruntime-dist-compat:1.0.16")
     testImplementation(libs.androidx.test.core.ktx)
     testImplementation(libs.androidx.test.ext.junit)
     testImplementation(platform(libs.androidx.compose.bom))
