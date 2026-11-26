@@ -16,6 +16,15 @@ val keystoreProperties = Properties().apply {
     }
 }
 
+val robolectricJars by configurations.creating {
+    isTransitive = false
+}
+
+val prepareRobolectricJars by tasks.registering(Sync::class) {
+    from(robolectricJars)
+    into(layout.buildDirectory.dir("robolectric-jars"))
+}
+
 android {
     namespace = "com.boost12.rd12"
     compileSdk = 35
@@ -91,6 +100,14 @@ android {
         unitTests {
             isIncludeAndroidResources = true
             isReturnDefaultValues = true
+            all { testTask ->
+                testTask.dependsOn(prepareRobolectricJars)
+                testTask.systemProperty("robolectric.offline", "true")
+                testTask.systemProperty(
+                    "robolectric.dependency.dir",
+                    layout.buildDirectory.dir("robolectric-jars").get().asFile.absolutePath
+                )
+            }
         }
     }
 
@@ -156,6 +173,7 @@ dependencies {
     testImplementation(libs.google.truth)
     testImplementation(libs.turbine)
     testImplementation(libs.robolectric)
+    robolectricJars("org.robolectric:android-all-instrumented:14-robolectric-10818077-i7")
     testImplementation(libs.androidx.test.core.ktx)
     testImplementation(libs.androidx.test.ext.junit)
     testImplementation(platform(libs.androidx.compose.bom))
