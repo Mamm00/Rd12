@@ -56,6 +56,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -281,10 +282,11 @@ fun CommandCard(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .semantics(mergeDescendants = true) {}
+                            .testTag("error_${cmd.id}")
                             .clip(RoundedCornerShape(10.dp))
                             .background(MaterialTheme.colorScheme.errorContainer)
-                            .padding(horizontal = 10.dp, vertical = 7.dp)
-                            .testTag("error_${cmd.id}"),
+                            .padding(horizontal = 10.dp, vertical = 7.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(

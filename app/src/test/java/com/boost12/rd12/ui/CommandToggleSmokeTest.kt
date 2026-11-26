@@ -87,7 +87,8 @@ class CommandToggleSmokeTest {
         simulatedVerifyPasses = false
         composeTestRule.onNodeWithTag("toggle_anim_scale_zero").performClick()
         composeTestRule.onNodeWithTag("toggle_anim_scale_zero").assertIsOff()
-        composeTestRule.onNodeWithTag("error_anim_scale_zero").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("error_anim_scale_zero", useUnmergedTree = true).assertIsDisplayed()
+        composeTestRule.onNodeWithText("Didn't apply — tap to inspect raw output").assertIsDisplayed()
     }
 
     @Test
