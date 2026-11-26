@@ -1,0 +1,47 @@
+name: Boost12 Android CI & APK Build
+
+on:
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run Unit Tests & Build Debug APK (v1.0, Debugger Mode ON)
+        if: hashFiles('app/src/main/java/**/*.kt') != ''
+        run: |
+          chmod +x ./gradlew
+          ./gradlew testDebugUnitTest assembleDebug --stacktrace
+          cp app/build/outputs/apk/debug/app-debug.apk Boost12-v1.0-debug.apk
+
+      - name: Upload Test Reports
+        if: always() && hashFiles('app/build/reports/tests/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: app/build/reports/tests/
+
+      - name: Upload Boost12 v1.0 Debug APK
+        if: hashFiles('Boost12-v1.0-debug.apk') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: Boost12-v1.0-debug-apk
+          path: Boost12-v1.0-debug.apk
