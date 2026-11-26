@@ -67,7 +67,7 @@ class VerifyOutputParserTest {
     fun `RegexMatch distinguishes wm density override vs stock reset`() {
         val rule = VerifyRule.RegexMatch(
             onPattern = "Override density:\\s*440",
-            offPattern = "^(?!.*Override density)[\\s\\S]*Physical density:"
+            offPattern = "\\A(?![\\s\\S]*Override density)[\\s\\S]*Physical density:"
         )
 
         val overridden = "Physical density: 450\nOverride density: 440"

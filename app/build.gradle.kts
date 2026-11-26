@@ -94,6 +94,12 @@ android {
         }
     }
 
+    lint {
+        abortOnError = true
+        checkReleaseBuilds = false
+        disable += setOf("InvalidPackage", "GradleDependency", "NewerVersionAvailable")
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"

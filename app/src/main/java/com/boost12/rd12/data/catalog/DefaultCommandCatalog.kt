@@ -167,7 +167,7 @@ object DefaultCommandCatalog {
             verifyShell = "wm density",
             verifyParser = VerifyRule.RegexMatch(
                 onPattern = "Override density:\\s*440",
-                offPattern = "^(?!.*Override density)[\\s\\S]*Physical density:",
+                offPattern = "\\A(?![\\s\\S]*Override density)[\\s\\S]*Physical density:",
                 humanSummary = "'wm density' reports Override density: 440 (OFF clears override)"
             ),
             riskLevel = RiskLevel.ADVANCED,

@@ -173,7 +173,7 @@ fun CommandCard(
                         ) {
                             Switch(
                                 checked = false,
-                                onCheckedChange = null,
+                                onCheckedChange = {},
                                 enabled = false,
                                 modifier = Modifier.testTag("toggle_${cmd.id}")
                             )
