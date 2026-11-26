@@ -20,6 +20,7 @@ interface CommandRepository {
     suspend fun testRunVerify(commandId: String): Result<ShellExecutionResult>
     suspend fun revertCommand(commandId: String): ToggleExecutionReport
     suspend fun revertAllActiveCommands(): Int
+    suspend fun revertFlaggedBeforeDisconnect(): Int
 
     suspend fun setRevertOnDisconnect(commandId: String, enabled: Boolean)
     suspend fun setTargetPackageOverride(commandId: String, packageName: String)

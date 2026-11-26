@@ -307,7 +307,7 @@ class CommandRepositoryImpl(
         revertedCount
     }
 
-    suspend fun revertFlaggedBeforeDisconnect(): Int = withContext(ioDispatcher) {
+    override suspend fun revertFlaggedBeforeDisconnect(): Int = withContext(ioDispatcher) {
         if (adbRepository.connectionState.value !is AdbConnectionState.Connected) return@withContext 0
         val allCommands = getAllCommandsSnapshot().associateBy { it.id }
         val statesById = stateDao.getAllSnapshot().associateBy { it.commandId }
