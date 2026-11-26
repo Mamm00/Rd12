@@ -320,6 +320,167 @@ object DefaultCommandCatalog {
 
         // ======================== RAM & STORAGE / IO ========================
         Command(
+            id = "alice_full_profile_bundle",
+            name = "#Alice Complete Memory & Phantom Suite",
+            summary = "Applies all 7 #Alice ActivityManager, phantom process, compaction & freezer tweaks.",
+            description = "One-tap #Alice preset: locks DeviceConfig sync (persistent), raises max_cached_processes to 512, uncaps max_phantom_processes (2147483647), disables settings_enable_monitor_phantom_procs, keeps empty cached processes warm for 12h (43200000 ms), enables proactive RAM compaction (use_compaction=true), and enables native-boot cgroup freezer (use_freezer=true). Toggling OFF cleanly resets all 7 overrides.",
+            category = CommandCategory.RAM,
+            onShell = listOf(
+                "device_config set_sync_disabled_for_tests persistent",
+                "device_config put activity_manager max_cached_processes 512",
+                "device_config put activity_manager max_phantom_processes 2147483647",
+                "settings put global settings_enable_monitor_phantom_procs false",
+                "device_config put activity_manager max_empty_time_millis 43200000",
+                "device_config put activity_manager use_compaction true",
+                "device_config put activity_manager_native_boot use_freezer true"
+            ),
+            offShell = listOf(
+                "device_config set_sync_disabled_for_tests none",
+                "device_config delete activity_manager max_cached_processes",
+                "device_config delete activity_manager max_phantom_processes",
+                "settings put global settings_enable_monitor_phantom_procs true",
+                "device_config delete activity_manager max_empty_time_millis",
+                "device_config delete activity_manager use_compaction",
+                "device_config delete activity_manager_native_boot use_freezer"
+            ),
+            verifyShell = "printf 'sync=%s\\ncached=%s\\nphantom=%s\\nmon=%s\\nempty=%s\\ncompact=%s\\nfreezer=%s\\n' \"$(device_config get_sync_disabled_for_tests 2>/dev/null || device_config is_sync_disabled_for_tests)\" \"$(device_config get activity_manager max_cached_processes)\" \"$(device_config get activity_manager max_phantom_processes)\" \"$(settings get global settings_enable_monitor_phantom_procs)\" \"$(device_config get activity_manager max_empty_time_millis)\" \"$(device_config get activity_manager use_compaction)\" \"$(device_config get activity_manager_native_boot use_freezer)\"",
+            verifyParser = VerifyRule.RegexMatch(
+                onPattern = "sync=(persistent|true)\\ncached=512\\nphantom=2147483647\\nmon=(false|0)\\nempty=43200000\\ncompact=true\\nfreezer=true",
+                offPattern = "\\A(?![\\s\\S]*sync=(persistent|true)\\ncached=512\\nphantom=2147483647\\nmon=(false|0)\\nempty=43200000\\ncompact=true\\nfreezer=true)sync=",
+                humanSummary = "All 7 #Alice device_config & phantom-process flags verified active"
+            ),
+            riskLevel = RiskLevel.MODERATE
+        ),
+        Command(
+            id = "alice_lock_device_config_sync",
+            name = "#Alice Lock DeviceConfig Sync (Persistent)",
+            summary = "Prevents Google Play Services from resetting your ActivityManager tuning.",
+            description = "Runs 'device_config set_sync_disabled_for_tests persistent' so GMS Phenotype background sync cannot overwrite max_cached_processes, max_phantom_processes, use_compaction, or freezer flags across reboots. OFF restores 'none'.",
+            category = CommandCategory.RAM,
+            onShell = listOf("device_config set_sync_disabled_for_tests persistent"),
+            offShell = listOf("device_config set_sync_disabled_for_tests none"),
+            verifyShell = "device_config get_sync_disabled_for_tests 2>/dev/null || device_config is_sync_disabled_for_tests",
+            verifyParser = VerifyRule.RegexMatch(
+                onPattern = "^(persistent|true)$",
+                offPattern = "^(none|until_reboot|false)$",
+                humanSummary = "device_config sync disabled mode == 'persistent'"
+            ),
+            riskLevel = RiskLevel.MODERATE
+        ),
+        Command(
+            id = "alice_device_config_max_cached_512",
+            name = "#Alice High Cached Pool (512 Processes)",
+            summary = "Raises device_config max_cached_processes to 512 for instant multitasking on 8 GB RAM.",
+            description = "Sets 'device_config put activity_manager max_cached_processes 512' so HyperOS stops prematurely killing recently used apps while 8 GB LPDDR4X RAM still has headroom. OFF deletes the override (restores stock 32).",
+            category = CommandCategory.RAM,
+            onShell = listOf("device_config put activity_manager max_cached_processes 512"),
+            offShell = listOf("device_config delete activity_manager max_cached_processes"),
+            verifyShell = "device_config get activity_manager max_cached_processes",
+            verifyParser = VerifyRule.RegexMatch(
+                onPattern = "^512$",
+                offPattern = "^(null|32|108096)$",
+                humanSummary = "device_config activity_manager/max_cached_processes == 512"
+            ),
+            riskLevel = RiskLevel.SAFE
+        ),
+        Command(
+            id = "ram_device_config_max_cached_108096",
+            name = "Uncapped Cached Processes (108096)",
+            summary = "Sets device_config max_cached_processes to 108096 so only LMKD bounds cached RAM.",
+            description = "Executes 'device_config put activity_manager max_cached_processes 108096', removing ActivityManager's artificial cached process count ceiling so apps stay resident in 8 GB RAM until physical memory pressure triggers LMKD. OFF deletes the override.",
+            category = CommandCategory.RAM,
+            onShell = listOf("device_config put activity_manager max_cached_processes 108096"),
+            offShell = listOf("device_config delete activity_manager max_cached_processes"),
+            verifyShell = "device_config get activity_manager max_cached_processes",
+            verifyParser = VerifyRule.RegexMatch(
+                onPattern = "^108096$",
+                offPattern = "^(null|32|512)$",
+                humanSummary = "device_config activity_manager/max_cached_processes == 108096"
+            ),
+            riskLevel = RiskLevel.ADVANCED
+        ),
+        Command(
+            id = "alice_max_phantom_processes_unlimited",
+            name = "Unlimited Phantom Processes (#Alice)",
+            summary = "Sets max_phantom_processes to 2147483647 to stop Android 12+ child-process kills.",
+            description = "Runs 'device_config put activity_manager max_phantom_processes 2147483647' (Int.MAX_VALUE) so Android's PhantomProcessList never sends SIGKILL (signal 9) to background shells, game subprocesses, or companion workers. OFF restores default (32).",
+            category = CommandCategory.RAM,
+            onShell = listOf("device_config put activity_manager max_phantom_processes 2147483647"),
+            offShell = listOf("device_config delete activity_manager max_phantom_processes"),
+            verifyShell = "device_config get activity_manager max_phantom_processes",
+            verifyParser = VerifyRule.RegexMatch(
+                onPattern = "^2147483647$",
+                offPattern = "^(null|32)$",
+                humanSummary = "device_config activity_manager/max_phantom_processes == 2147483647"
+            ),
+            riskLevel = RiskLevel.SAFE
+        ),
+        Command(
+            id = "alice_max_empty_time_12h",
+            name = "#Alice Keep Cached Apps Warm (12h Empty TTL)",
+            summary = "Extends activity_manager max_empty_time_millis to 43,200,000 ms (12 hours).",
+            description = "Sets 'device_config put activity_manager max_empty_time_millis 43200000' instead of Android's 30-minute default so idle cached processes stay warm in RAM for instant relaunch without cold-start CPU spikes. OFF deletes the override.",
+            category = CommandCategory.RAM,
+            onShell = listOf("device_config put activity_manager max_empty_time_millis 43200000"),
+            offShell = listOf("device_config delete activity_manager max_empty_time_millis"),
+            verifyShell = "device_config get activity_manager max_empty_time_millis",
+            verifyParser = VerifyRule.RegexMatch(
+                onPattern = "^43200000$",
+                offPattern = "^(null|1800000|3600000)$",
+                humanSummary = "device_config activity_manager/max_empty_time_millis == 43200000"
+            ),
+            riskLevel = RiskLevel.SAFE
+        ),
+        Command(
+            id = "alice_enable_memory_compaction",
+            name = "#Alice Proactive RAM Compaction (use_compaction)",
+            summary = "Enables ActivityManager CachedAppOptimizer memory compaction into zRAM.",
+            description = "Runs 'device_config put activity_manager use_compaction true' so Android compacts anonymous and file-backed pages of backgrounded apps, fitting significantly more apps into the Redmi 12 4G's 8 GB RAM. OFF deletes the override.",
+            category = CommandCategory.RAM,
+            onShell = listOf("device_config put activity_manager use_compaction true"),
+            offShell = listOf("device_config delete activity_manager use_compaction"),
+            verifyShell = "device_config get activity_manager use_compaction",
+            verifyParser = VerifyRule.RegexMatch(
+                onPattern = "^true$",
+                offPattern = "^(false|null)$",
+                humanSummary = "device_config activity_manager/use_compaction == 'true'"
+            ),
+            riskLevel = RiskLevel.SAFE
+        ),
+        Command(
+            id = "ram_disable_miui_ram_expand",
+            name = "Disable MIUI Memory Extension (ram_expand_size 0)",
+            summary = "Disables slow NAND virtual RAM swap ('settings put global ram_expand_size 0').",
+            description = "Sets global ram_expand_size=0 so MIUI/HyperOS stops paging apps out to slower flash storage on the 8 GB Redmi 12 4G, reducing UI micro-stutter and flash wear. OFF deletes the override.",
+            category = CommandCategory.RAM,
+            onShell = listOf("settings put global ram_expand_size 0"),
+            offShell = listOf("settings delete global ram_expand_size"),
+            verifyShell = "settings get global ram_expand_size",
+            verifyParser = VerifyRule.RegexMatch(
+                onPattern = "^0$",
+                offPattern = "^(null|[1-9][0-9]*)$",
+                humanSummary = "settings get global ram_expand_size == 0"
+            ),
+            riskLevel = RiskLevel.SAFE,
+            miuiQuirkNote = "MIUI/HyperOS fully detaches the backing flash swap file on your next normal device reboot."
+        ),
+        Command(
+            id = "ram_enable_zram_global",
+            name = "Enable In-RAM Compression (zram_enabled 1)",
+            summary = "Ensures fast LZ4 compressed in-RAM zRAM stays enabled ('zram_enabled 1').",
+            description = "Runs 'settings put global zram_enabled 1' so compressed memory pages remain in fast LPDDR4X RAM rather than spilling to disk swap. OFF removes the explicit global override.",
+            category = CommandCategory.RAM,
+            onShell = listOf("settings put global zram_enabled 1"),
+            offShell = listOf("settings delete global zram_enabled"),
+            verifyShell = "settings get global zram_enabled",
+            verifyParser = VerifyRule.RegexMatch(
+                onPattern = "^1$",
+                offPattern = "^(0|null)$",
+                humanSummary = "settings get global zram_enabled == 1"
+            ),
+            riskLevel = RiskLevel.SAFE
+        ),
+        Command(
             id = "ram_max_cached_processes_16",
             name = "Tune Cached App Limit (16 Processes)",
             summary = "Caps background cached processes at 16 to free ~1.2 GB on 8 GB Redmi 12.",
@@ -398,9 +559,9 @@ object DefaultCommandCatalog {
         ),
         Command(
             id = "ram_zram_swappiness_locked",
-            name = "ZRAM Size & Kernel vm.swappiness",
+            name = "Raw ZRAM Disksize & Kernel vm.swappiness",
             summary = "Unavailable on this device — /proc/sys/vm & /sys/block/zram0 require root.",
-            description = "Modifying MIUI Memory Extension / ZRAM block size or /proc/sys/vm/swappiness directly requires kernel root privileges. Toggle Memory Extension in MIUI Settings → Additional settings instead.",
+            description = "Resizing raw /sys/block/zram0/disksize or tuning /proc/sys/vm/swappiness directly requires kernel root privileges. Use 'Disable MIUI Memory Extension' and 'Enable In-RAM Compression' above for safe user-space control.",
             category = CommandCategory.RAM,
             onShell = emptyList(),
             offShell = emptyList(),
@@ -412,6 +573,119 @@ object DefaultCommandCatalog {
         ),
 
         // ======================== BACKGROUND APPS ========================
+        Command(
+            id = "bg_cached_apps_freezer_enabled",
+            name = "Enable Cached Apps Freezer",
+            summary = "Freezes cached background apps ('settings put global cached_apps_freezer enabled').",
+            description = "Enables Android's cgroup v2 Cached Apps Freezer so backgrounded apps consume zero Snapdragon 685 CPU cycles and zero wakelocks while remaining in RAM for instant resume. OFF restores device_default.",
+            category = CommandCategory.BACKGROUND,
+            onShell = listOf("settings put global cached_apps_freezer enabled"),
+            offShell = listOf("settings delete global cached_apps_freezer"),
+            verifyShell = "settings get global cached_apps_freezer",
+            verifyParser = VerifyRule.RegexMatch(
+                onPattern = "^enabled$",
+                offPattern = "^(null|device_default|disabled)$",
+                humanSummary = "settings get global cached_apps_freezer == 'enabled'"
+            ),
+            riskLevel = RiskLevel.SAFE
+        ),
+        Command(
+            id = "alice_native_boot_use_freezer",
+            name = "#Alice Native Boot Freezer (use_freezer)",
+            summary = "Enables native-boot cgroup freezer ('activity_manager_native_boot use_freezer true').",
+            description = "Sets 'device_config put activity_manager_native_boot use_freezer true' so ActivityManager's native cgroup process freezer stays enabled persistently across boot cycles. OFF deletes the override.",
+            category = CommandCategory.BACKGROUND,
+            onShell = listOf("device_config put activity_manager_native_boot use_freezer true"),
+            offShell = listOf("device_config delete activity_manager_native_boot use_freezer"),
+            verifyShell = "device_config get activity_manager_native_boot use_freezer",
+            verifyParser = VerifyRule.RegexMatch(
+                onPattern = "^true$",
+                offPattern = "^(false|null)$",
+                humanSummary = "device_config activity_manager_native_boot/use_freezer == 'true'"
+            ),
+            riskLevel = RiskLevel.SAFE
+        ),
+        Command(
+            id = "alice_disable_phantom_proc_monitor",
+            name = "#Alice Disable Phantom Process Monitor",
+            summary = "Disables phantom process killer ('settings_enable_monitor_phantom_procs false').",
+            description = "Sets 'settings put global settings_enable_monitor_phantom_procs false' (Android 12L–15 Developer Options flag) so the system stops monitoring and terminating child/phantom processes. OFF restores 'true'.",
+            category = CommandCategory.BACKGROUND,
+            onShell = listOf("settings put global settings_enable_monitor_phantom_procs false"),
+            offShell = listOf("settings put global settings_enable_monitor_phantom_procs true"),
+            verifyShell = "settings get global settings_enable_monitor_phantom_procs",
+            verifyParser = VerifyRule.RegexMatch(
+                onPattern = "^(false|0)$",
+                offPattern = "^(true|1|null)$",
+                humanSummary = "settings get global settings_enable_monitor_phantom_procs == false"
+            ),
+            riskLevel = RiskLevel.SAFE
+        ),
+        Command(
+            id = "bg_app_standby_enabled",
+            name = "Enforce Global App Standby",
+            summary = "Ensures Android App Standby buckets throttle idle apps ('app_standby_enabled 1').",
+            description = "Runs 'settings put global app_standby_enabled 1' so rarely used background apps are automatically placed into restricted JobScheduler, alarm, and network buckets. OFF deletes the explicit override.",
+            category = CommandCategory.BACKGROUND,
+            onShell = listOf("settings put global app_standby_enabled 1"),
+            offShell = listOf("settings delete global app_standby_enabled"),
+            verifyShell = "settings get global app_standby_enabled",
+            verifyParser = VerifyRule.RegexMatch(
+                onPattern = "^1$",
+                offPattern = "^(0|null)$",
+                humanSummary = "settings get global app_standby_enabled == 1"
+            ),
+            riskLevel = RiskLevel.SAFE
+        ),
+        Command(
+            id = "bg_app_restriction_enabled",
+            name = "Enable Background App Restrictions",
+            summary = "Enables automatic background restriction controller ('app_restriction_enabled true').",
+            description = "Sets 'settings put global app_restriction_enabled true' so Android's background battery/RAM anomaly controller can restrict runaway background services automatically. OFF removes the override.",
+            category = CommandCategory.BACKGROUND,
+            onShell = listOf("settings put global app_restriction_enabled true"),
+            offShell = listOf("settings delete global app_restriction_enabled"),
+            verifyShell = "settings get global app_restriction_enabled",
+            verifyParser = VerifyRule.RegexMatch(
+                onPattern = "^true$",
+                offPattern = "^(false|null)$",
+                humanSummary = "settings get global app_restriction_enabled == 'true'"
+            ),
+            riskLevel = RiskLevel.SAFE
+        ),
+        Command(
+            id = "bg_process_limit_4",
+            name = "Background Process Limit (Max 4)",
+            summary = "Caps active background processes to 4 ('settings put global background_process_limit 4').",
+            description = "Sets global background_process_limit=4 to reserve maximum free LPDDR4X RAM for heavy 3D gaming sessions on Redmi 12 4G. Older background apps beyond 4 are reclaimed immediately; OFF restores the standard limit.",
+            category = CommandCategory.BACKGROUND,
+            onShell = listOf("settings put global background_process_limit 4"),
+            offShell = listOf("settings delete global background_process_limit"),
+            verifyShell = "settings get global background_process_limit",
+            verifyParser = VerifyRule.RegexMatch(
+                onPattern = "^4$",
+                offPattern = "^(null|-1)$",
+                humanSummary = "settings get global background_process_limit == 4"
+            ),
+            riskLevel = RiskLevel.MODERATE,
+            revertOnDisconnectDefault = true
+        ),
+        Command(
+            id = "bg_disable_intelligent_sleep_mode",
+            name = "Disable Intelligent Sleep Mode",
+            summary = "Disables overnight sleep throttling ('settings put system intelligent_sleep_mode 0').",
+            description = "Runs 'settings put system intelligent_sleep_mode 0' so vendor sleep-mode heuristics do not cut off overnight background syncs, alarms, or long-running tasks. OFF deletes the override.",
+            category = CommandCategory.BACKGROUND,
+            onShell = listOf("settings put system intelligent_sleep_mode 0"),
+            offShell = listOf("settings delete system intelligent_sleep_mode"),
+            verifyShell = "settings get system intelligent_sleep_mode",
+            verifyParser = VerifyRule.RegexMatch(
+                onPattern = "^0$",
+                offPattern = "^(1|null)$",
+                humanSummary = "settings get system intelligent_sleep_mode == 0"
+            ),
+            riskLevel = RiskLevel.SAFE
+        ),
         Command(
             id = "bg_deep_doze_acceleration",
             name = "Deep Doze Fast Idle (60s Screen-Off)",

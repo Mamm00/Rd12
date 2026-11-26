@@ -81,7 +81,7 @@ jobs:
 
           ### Highlights
           - Embedded pure-Kotlin **ADB-over-Wi-Fi** client (\`TLSv1.3\` + BoringSSL-compatible \`SPAKE2+\` 6-digit pairing + \`mDNS\` auto-discovery + \`EncryptedSharedPreferences\` one-tap reconnect)
-          - **Real-time verified toggles** across Display (90 Hz, 0x/0.5x animations, 440 DPI, Game Turbo), CPU, GPU (ANGLE, SkiaVK, HW overlays), RAM/Storage (\`max_cached_processes\`, \`fstrim\`, 1 GB cache trim, standby bucket), Background (\`Doze\`, \`appops\`), Network (\`netpolicy\`, Wi-Fi low-latency), and **Custom ADB Shell** cards
+          - **Real-time verified toggles (38 built-in cards)** across Display (90 Hz, 0x/0.5x animations, 440 DPI, Game Turbo), CPU, GPU (ANGLE, SkiaVK, HW overlays), **#Alice ActivityManager & Phantom Process Suite** (\`set_sync_disabled_for_tests persistent\`, \`max_cached_processes 512\` & \`108096\`, \`max_phantom_processes 2147483647\`, \`settings_enable_monitor_phantom_procs false\`, \`max_empty_time_millis 43200000\`, \`use_compaction true\`, \`activity_manager_native_boot use_freezer true\`), **Memory & Background Process** (\`ram_expand_size 0\`, \`zram_enabled 1\`, \`cached_apps_freezer enabled\`, \`app_standby_enabled 1\`, \`app_restriction_enabled true\`, \`background_process_limit 4\`, \`intelligent_sleep_mode 0\`, \`fstrim\`, 1 GB cache trim, \`Doze\`, \`appops\`), Network (\`netpolicy\`, Wi-Fi low-latency), and **Custom ADB Shell** cards
           - Room-persisted **Change History** with one-tap **Revert All** and hard-blocked destructive command protection
           NOTES
 

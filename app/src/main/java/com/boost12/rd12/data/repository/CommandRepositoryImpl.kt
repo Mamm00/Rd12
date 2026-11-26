@@ -239,6 +239,10 @@ class CommandRepositoryImpl(
                 )
             )
 
+            if (report.verificationPassed) {
+                syncRelatedCommands(commandId)
+            }
+
             report
         } finally {
             applyingIds.update { it - commandId }
@@ -452,6 +456,56 @@ class CommandRepositoryImpl(
 
     override suspend fun clearHistory() = withContext(ioDispatcher) {
         historyDao.clearAll()
+    }
+
+    private suspend fun syncRelatedCommands(toggledId: String) {
+        val aliceSubIds = setOf(
+            "alice_lock_device_config_sync",
+            "alice_device_config_max_cached_512",
+            "alice_max_phantom_processes_unlimited",
+            "alice_disable_phantom_proc_monitor",
+            "alice_max_empty_time_12h",
+            "alice_enable_memory_compaction",
+            "alice_native_boot_use_freezer"
+        )
+        val relatedIds: Set<String> = when (toggledId) {
+            "anim_scale_zero" -> setOf("anim_scale_half")
+            "anim_scale_half" -> setOf("anim_scale_zero")
+            "alice_full_profile_bundle" -> aliceSubIds + "ram_device_config_max_cached_108096"
+            "alice_device_config_max_cached_512" -> setOf(
+                "ram_device_config_max_cached_108096",
+                "alice_full_profile_bundle"
+            )
+            "ram_device_config_max_cached_108096" -> setOf(
+                "alice_device_config_max_cached_512",
+                "alice_full_profile_bundle"
+            )
+            in aliceSubIds -> setOf("alice_full_profile_bundle")
+            else -> emptySet()
+        }
+
+        for (siblingId in relatedIds) {
+            val sibling = findCommandById(siblingId) ?: continue
+            val existing = stateDao.getById(siblingId)
+            val siblingReport = engine.verifyCurrentState(sibling, existing?.targetPackageOverride)
+            if (siblingReport.verifiedEnabled != null) {
+                stateDao.upsert(
+                    CommandStateEntity(
+                        commandId = sibling.id,
+                        verifiedEnabled = siblingReport.verifiedEnabled,
+                        revertOnDisconnect = existing?.revertOnDisconnect
+                            ?: sibling.revertOnDisconnectDefault,
+                        lastRawOutput = siblingReport.combinedShellOutput.ifBlank {
+                            existing?.lastRawOutput
+                        },
+                        lastExitCode = 0,
+                        lastErrorBanner = null,
+                        targetPackageOverride = existing?.targetPackageOverride,
+                        updatedAtEpochMs = System.currentTimeMillis()
+                    )
+                )
+            }
+        }
     }
 
     private suspend fun getAllCommandsSnapshot(): List<Command> {
